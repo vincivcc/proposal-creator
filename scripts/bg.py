@@ -12,12 +12,20 @@
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cfg import CFG
+import cfg
+
+# 产出目录是命令行给的，就按参数读配置。**别靠 cwd 猜**——
+# 猜错时 sections 是空的，章节背景那个循环跑 0 次，一张不出还不报错，
+# 等建 deck 时报「找不到 章节01-xxx.jpg」，很难倒查到这儿。
+if len(sys.argv) > 1:
+    cfg.use(sys.argv[1])
+cfg.require()                      # 没配置 / 没 sections，在这儿就停下
+CFG = cfg.CFG
+
 import numpy as np
 from PIL import Image, ImageFilter
 
-OUT = (sys.argv[1].rstrip('/') + '/_bg/' if len(sys.argv) > 1
-       else CFG['base'] + '_bg/')
+OUT = CFG['base'] + '_bg/'
 os.makedirs(OUT, exist_ok=True)
 
 W, H = 1920, 1080

@@ -3,14 +3,40 @@
 
 复制到 <产出>/_src/deck.py 再改。跑法：
     cd <产出>/_src && python3 deck.py
-然后一定要跑自检：
-    python3 ~/.claude/skills/proposal-creator/scripts/render.py <产出>/全案-v1.pptx /tmp/r
+然后一定要跑自检（脚本位置见下面 _find_scripts 的说明）：
+    python3 "$SCRIPTS/render.py" <产出>/全案-v1.pptx /tmp/r
 
 原语都自己算高度、自己贴边，所以顺序往下排就行。但**排完必须跑 render.py**——
 它能查出溢出和越界，肉眼看缩略图看不出来。
 """
 import os, sys
-SCRIPTS = os.path.expanduser('~/.claude/skills/proposal-creator/scripts')
+
+
+def _find_scripts():
+    """定位本 skill 的 scripts/ 目录。
+
+    Claude Code 和 Codex 读不同的目录，装的位置不一样；用软链接装的话
+    两个路径都存在。所以别写死其中一个，挨个找。也认环境变量，
+    方便装在别处的人自己指定。
+    """
+    env = os.environ.get('PROPOSAL_CREATOR_SCRIPTS')
+    if env and os.path.isdir(env):
+        return env
+    for p in ('~/.claude/skills/proposal-creator/scripts',      # Claude Code
+              '~/.agents/skills/proposal-creator/scripts',      # Codex
+              '~/.codex/skills/proposal-creator/scripts',       # Codex 旧位置
+              '<项目>/.claude/skills/proposal-creator/scripts', # 项目级
+              '<项目>/.agents/skills/proposal-creator/scripts'):
+        p = os.path.expanduser(p.replace('<项目>', os.getcwd()))
+        if os.path.isdir(p):
+            return p
+    raise SystemExit(
+        '找不到 proposal-creator 的 scripts/ 目录。找过 ~/.claude/skills/、'
+        '~/.agents/skills/ 和当前项目的 .claude/skills/、.agents/skills/。\n'
+        '装在别处的话，设一下 PROPOSAL_CREATOR_SCRIPTS=<...>/scripts')
+
+
+SCRIPTS = _find_scripts()
 sys.path.insert(0, SCRIPTS)
 from kit import *
 

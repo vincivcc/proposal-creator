@@ -1,19 +1,35 @@
 ---
 name: proposal-creator
 description: 写品牌传播方案（比稿 / 提案），产出逐页内容加可编辑的 PPT、讲稿和换图清单。当用户要写方案、写提案、写比稿、写传播方案、写 campaign 方案，或丢来一个客户 brief 说「帮我出个方案」时使用。也适用于「把这些内容做成 PPT」「给这个方案配图」「写个讲稿」。不适用于单篇文案、新闻稿、活动执行手册——那些不是提案。
-license: MIT
-allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch, Agent, Glob, Grep
-metadata:
-  author: vinci
-  version: 1.0.0
-  language: zh-CN
-compatibility: 需要 Python 3 与 python-pptx、Pillow、numpy。字体与背景合成为 macOS 路径。素材上传需要 Chrome 或 Edge。
 ---
 
 # 写方案
 
 给品牌客户写传播方案。产出不是一份文档，是**一套交付物**：
 逐页内容 + 可编辑的 PPT + 讲稿 + 换图清单。
+
+MIT 协议，作者 vinci，版本 1.0.0，工作语言中文。
+
+**这个 skill 需要的能力**：读写文件、执行 shell 命令、联网搜索。
+下面很多步骤要跑 Python 脚本，没有 shell 权限就退化成手工操作。
+
+**环境要求**：Python 3，以及 `python-pptx`、`Pillow`、`numpy`。
+背景合成和 PPT 生成跨平台可用。姓名卡要往图上画中文，用到 macOS 的
+字体文件，其他平台会自动退回默认字体——不崩，但中文会变方块。
+素材上传（可选的那一步）需要 Chrome 或 Edge；不做也不影响出 PPT。
+
+## 先定位脚本目录
+
+下面会多次用到本 skill 的 `scripts/`。**Claude Code 和 Codex 读的目录不同**，
+所以别写死路径，第一次要用之前先定位一次：
+
+```bash
+SKILL=$(ls -d ~/.claude/skills/proposal-creator \
+               ~/.agents/skills/proposal-creator 2>/dev/null | head -1)
+```
+
+（用软链接装的，两个路径都在，取到哪个都对。装在别处就自己指过去。）
+下文一律用 `$SKILL` 加相对路径指代脚本。
 
 ## 开场第一件事：亮流程
 
@@ -129,7 +145,7 @@ compatibility: 需要 Python 3 与 python-pptx、Pillow、numpy。字体与背�
 不存在「这张图从哪来的」这个问题。搬别人的素材是红线。
 
 ```bash
-python3 ~/.claude/skills/proposal-creator/scripts/bg.py <产出目录>
+python3 "$SKILL/scripts/bg.py" <产出目录>
 ```
 
 出一套背景家族（约 10 张，共 1.7 MB），**全案复用**。
@@ -151,7 +167,7 @@ cd <产出>/_src && python3 deck.py
 **排完必须跑自检**，肉眼翻缩略图看不出溢出：
 
 ```bash
-python3 ~/.claude/skills/proposal-creator/scripts/render.py <产出>/全案-v1.pptx /tmp/r
+python3 "$SKILL/scripts/render.py" <产出>/全案-v1.pptx /tmp/r
 ```
 
 它会逐页报「文字溢出」和「越界」。**修到 0 为止**——别把警告留给用户。

@@ -8,7 +8,11 @@
 查找顺序（找到就用，不再往下找）：
   1. 环境变量 PROPOSAL_PROJECT 指向的目录
   2. 从当前工作目录逐级往上找 _project.json
-  3. 本文件所在目录（跑 bg.py 这类独立脚本时用）
+  3. 本文件所在目录
+
+第 3 条基本命不中（脚本装在 skill 里，配置在产出目录里），所以
+**「产出目录是命令行参数」的脚本必须自己调 use(目录)**，
+别指望这三条能猜对。
 
 字体那两条是历史包袱，别改：python-pptx 的 run.font.name 只写 <a:latin>，
 中文必须另外写 <a:ea typeface>，否则 PowerPoint 里中文会掉字变方块。
@@ -45,16 +49,44 @@ def _find():
     return p if os.path.exists(p) else None
 
 
+CFG = dict(_DEFAULTS)
+CFG['_path'] = None
+
+
+def _load(path):
+    """把 _project.json 读进 CFG。
+
+    **就地改，不重新绑定**——kit.py 那边写的是 `from cfg import CFG`，
+    换个新 dict 它看不见，还是拿着旧的空配置往下跑。
+    """
+    CFG.clear()
+    CFG.update(_DEFAULTS)
+    CFG.update(json.load(open(path, encoding='utf-8')))
+    CFG['_path'] = path
+    if not CFG.get('base'):
+        CFG['base'] = os.path.dirname(path) + '/'
+    return CFG
+
+
+def use(d):
+    """显式指定产出目录。
+
+    给「产出目录是命令行参数」的脚本用（bg.py）。没有这个函数的话，
+    它们只能靠 cwd 往上找——从别处运行时读不到 sections，章节背景
+    一张都不出，而且**不报错**，等建 deck 时才发现少了图，很难倒查。
+    """
+    d = os.path.abspath(d)
+    p = os.path.join(d, '_project.json')
+    if not os.path.exists(p):
+        raise SystemExit(
+            '%s 下没有 _project.json。\n'
+            '  产出目录要指向建过配置的那一层，不是它的上级。' % d)
+    return _load(p)
+
+
 _path = _find()
 if _path:
-    CFG = dict(_DEFAULTS)
-    CFG.update(json.load(open(_path, encoding='utf-8')))
-    CFG['_path'] = _path
-    if not CFG.get('base'):
-        CFG['base'] = os.path.dirname(_path) + '/'
-else:
-    CFG = dict(_DEFAULTS)
-    CFG['_path'] = None
+    _load(_path)
 
 
 def require():

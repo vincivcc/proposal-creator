@@ -48,8 +48,21 @@ onN_ln = '2A303B'
 INK, INK2, INK3 = '1A1A1E', '4A4A52', '8A8A92'       # 浅底上的三级文字
 LINE_L = 'E3E0D9'                                     # 浅底分隔线
 
-SEC_COLOR = {k: v['color'] for k, v in CFG['sections'].items()}
-SEC_NAME  = {k: (v['name'], v['en']) for k, v in CFG['sections'].items()}
+class _Sec(dict):
+    """章节号对不上时给一句人话。
+
+    deck 脚本是从模板复制来改的，删几页、改章节号是常事。裸的 KeyError: '02'
+    会让人以为是工具箱坏了，其实只是脚本里还留着一处引用别的方案才有的章节。
+    """
+    def __missing__(self, k):
+        raise SystemExit(
+            '章节 %r 不在 _project.json 的 sections 里。现有的：%s\n'
+            '  改 deck 脚本里这一处，或者把该章节补进配置。'
+            % (k, '、'.join(sorted(self)) or '（一个都没有）'))
+
+
+SEC_COLOR = _Sec((k, v['color']) for k, v in CFG['sections'].items())
+SEC_NAME  = _Sec((k, (v['name'], v['en'])) for k, v in CFG['sections'].items())
 SEC_KEYS  = sorted(CFG['sections'])                   # 目录和章节页按这个顺序
 
 _F = CFG['fonts']
@@ -199,9 +212,26 @@ def deck():
     p.slide_width, p.slide_height = Inches(W), Inches(H)
     return p
 
+def _need_bg(bgfile):
+    """背景没生成时给一句人话。
+
+    不拦的话 python-pptx 会抛 FileNotFoundError，指向一张 .jpg——
+    看起来像图片坏了，实际是「还没跑 bg.py」。顺序在 SKILL.md 4.3 / 4.5，
+    但漏跑一次就要查半天。这里把话说明白。
+    """
+    if os.path.exists(BG + bgfile):
+        return
+    raise SystemExit(
+        '背景图 %s 不存在——**先跑 bg.py 生成背景家族，再建 deck**：\n'
+        '    python3 "$SKILL/scripts/bg.py" %s\n'
+        '（deck 脚本只引用背景，不负责生成。顺序反了就是这个错。）'
+        % (BG + bgfile, BASE))
+
+
 def blank(prs, bgfile=None, scrim=0.0, solid='0A0D13'):
     s = prs.slides.add_slide(prs.slide_layouts[6])
     if bgfile:
+        _need_bg(bgfile)
         s.shapes.add_picture(BG + bgfile, 0, 0, width=prs.slide_width, height=prs.slide_height)
     else:
         f = s.background.fill; f.solid()

@@ -1,6 +1,6 @@
 # proposal-creator
 
-给 Claude Code 用的「写方案」技能。丢一个客户 brief 进去，出来一套交付物：
+给 Claude Code / Codex 用的「写方案」技能。丢一个客户 brief 进去，出来一套交付物：
 **逐页内容 + 可编辑的 PPT + 讲稿 + 换图清单**。
 
 写给公关、广告、品牌方做提案的人。客户多为美妆、奢侈品、零售品牌。
@@ -31,11 +31,35 @@
 
 ## 安装
 
+**Claude Code 和 Codex 读的目录不一样**，两边互不读对方的：
+
+| 工具 | 个人级 | 项目级 | 手动调用 |
+|---|---|---|---|
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` | `/proposal-creator` |
+| Codex | `~/.agents/skills/` | `.agents/skills/` | `$proposal-creator` |
+
+只用一个工具的话，clone 到对应目录就行：
+
 ```bash
+# Claude Code
 git clone <本仓库地址> ~/.claude/skills/proposal-creator
+
+# Codex
+git clone <本仓库地址> ~/.agents/skills/proposal-creator
 ```
 
-装完之后，在 Claude Code 里说「帮我写个方案」「有个比稿」之类的话就会自动生效。
+**两个都用，用软链接装一份**——省得两边各存一份，改了一边忘了另一边：
+
+```bash
+git clone <本仓库地址> ~/.claude/skills/proposal-creator
+mkdir -p ~/.agents/skills
+ln -s ~/.claude/skills/proposal-creator ~/.agents/skills/proposal-creator
+```
+
+装完之后不用注册，说「帮我写个方案」「有个比稿」这类话就会自动生效。
+
+> 技能正文里所有脚本路径都写成 `$SKILL/scripts/...`，`$SKILL` 由正文开头那条
+> `ls` 命令现场定位，所以装在哪、装在几个地方都不影响。
 
 **依赖**：Python 3，以及 `python-pptx`、`Pillow`、`numpy`。
 
@@ -120,19 +144,19 @@ proposal-creator/
 
 ## 安全说明
 
-`SKILL.md` 的 frontmatter 里声明了 `allowed-tools`。**装别人的 skill 之前，
-先看一眼这个字段**——它声明的东西会被直接授予，不受工作区信任弹窗保护。
-本技能的声明是：
+**这个技能的 frontmatter 只有 `name` 和 `description` 两个字段。**
 
-```
-Read, Write, Edit, Bash, WebSearch, WebFetch, Agent, Glob, Grep
-```
+这是刻意的。SKILL.md 是个开放标准，好几个工具都读，但**只有这两个字段是
+确定通用的**——其余（`allowed-tools`、`license`、`metadata` 等）都是某个工具
+或某条分发通道的扩展。这个技能要跨工具用，所以能靠字段表达的信息全压进
+那两个字段，其余一律写正文——正文是纯 markdown，到哪个工具都一样。
 
-`Bash` 是跑上面那几个 Python 脚本必需的。如果你的环境更严格，
-可以把它去掉，改成手动执行脚本。
+顺带说一句，**装别人的 skill 之前，先看它的 frontmatter**。如果里面有
+`allowed-tools`，那个字段声明的东西会被直接授予，**不受工作区信任弹窗保护**。
+本技能不需要它。
 
-素材上传走浏览器的 File System Access API，**图片只写进你本机的项目目录，
-不上传任何外部服务**。
+技能会读写你本机的文件、跑 Python 脚本、联网搜索。素材上传走浏览器的
+File System Access API，**图片只写进你本机的项目目录，不上传任何外部服务**。
 
 ---
 

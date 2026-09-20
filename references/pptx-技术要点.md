@@ -124,7 +124,7 @@ im.save(p, 'JPEG', quality=82, optimize=True, progressive=True, subsampling=2)
 排完一定要跑：
 
 ```bash
-python3 ~/.claude/skills/proposal-creator/scripts/render.py <文件.pptx> /tmp/r
+python3 "$SKILL/scripts/render.py" <文件.pptx> /tmp/r
 ```
 
 **但要诚实交代：预览是我自己写的渲染器画的，不是 PowerPoint 渲染的。**
@@ -143,3 +143,16 @@ python3 ~/.claude/skills/proposal-creator/scripts/render.py <文件.pptx> /tmp/r
 **看着像是有意为之，不像缺图**。这一点很重要：测试版给客户看时不能露怯。
 
 配套出一份 **换图清单**，说清每个位置换成什么、从哪来。
+
+## 十一 · 产出目录是命令行参数时，必须 `cfg.use()`
+
+`cfg.py` 默认靠 cwd 往上找 `_project.json`。但 `bg.py` 的产出目录是**命令行参数**，
+从别处运行时 cwd 不对，就会读到一个空配置——`sections` 为空，
+章节背景那个循环**跑 0 次，一张不出还不报错**。
+
+要到建 deck 时才炸「找不到 `章节01-xxx.jpg`」，而且很难倒查回 bg.py。
+
+所以：**凡是产出目录走 argv 的脚本，开头就要 `cfg.use(argv[1])` + `cfg.require()`。**
+反过来，`kit.py` 这类靠 cwd 的（deck 脚本总在 `产出/_src/` 里跑）不用管。
+
+排错口诀：**结果不对但不报错，先查配置读到哪一份了。**
