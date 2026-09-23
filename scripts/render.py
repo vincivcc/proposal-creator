@@ -24,7 +24,10 @@ FONTMAP = {
     'optimael text': (GE, 0), 'optima lt std': (GE, 0), 'optima': (GE, 0),
     'mhei prc medium': (PF, 7), 'mhei prc': (PF, 3),
 }
-WARN = []          # 渲染时收集的问题：文字溢出 / 形状越界
+WARN = []          # 渲染时收集的问题：文字溢出 / 形状越界 / 文字压叠 / 色块压字
+_LAYER = []        # 本页**绘制顺序**（px）。顺序就是 z 序，先画的在下。
+                   # ('墨', x0,y0,x1,y1, 文字) = 一块字真实落到的范围
+                   # ('块', x0,y0,x1,y1)      = 一块实色/半透明填充
 _CUR = [0]         # 当前页号
 _FC = ['']         # 当前页首个文字框内容，便于定位
 
@@ -160,6 +163,7 @@ def render_text(dr, sh, PPT, PPI, ox=0.0, oy=0.0, box=None):
             break
     a = tf.vertical_anchor
     cy = ty + (hh - total) / 2 if a == MA.MIDDLE else (ty + hh - total if a == MA.BOTTOM else ty)
+    ix0 = iy0 = 1e9; ix1 = iy1 = -1e9        # 这块字实际占到哪儿
     for par, lines, hs, sb, sa in blocks:
         cy += sb
         for ln, lh in zip(lines, hs):
@@ -168,16 +172,37 @@ def render_text(dr, sh, PPT, PPI, ox=0.0, oy=0.0, box=None):
             al = par.alignment
             cx = tx + (ww - lw) / 2 if al == PA.CENTER else (tx + ww - lw if al == PA.RIGHT else tx)
             base = cy + lh * 0.79
+            if ln and lw > 0:                # 记的是落字范围，不是框——框留白大得多
+                ix0 = min(ix0, cx); ix1 = max(ix1, cx + lw)
+                iy0 = min(iy0, cy); iy1 = max(iy1, cy + lh)
             for at, f, col, spc in ln:
                 if f is None: continue
                 dr.text((cx, base), at, font=f, fill=col, anchor='ls')
                 cx += f.getlength(at) + spc * len(at)
             cy += lh
         cy += sa
+    if ix1 > ix0:
+        _LAYER.append(('墨', ix0, iy0, ix1, iy1,
+                       tf.text.strip().replace('\n', ' ')[:18]))
 
 def solid_of(sh):
+    """取形状的实色填充。**描边也算**——线是拿描边画的，不是拿填充画的。
+
+    kit.line_h() / kit.rule() 用 add_connector 画横线，颜色写在 a:ln/a:solidFill，
+    spPr 底下根本没有 a:solidFill。早先这里只看 spPr，于是**预览里所有横线
+    都消失了**（封面那道金线、kv_rows 的行间线、目录的分隔线），而 pptx 里
+    线是在的。预览缺一根线和设计缺一根线，看起来一模一样——所以这个 fallback
+    不能省，否则「预览看着挺好」就成了一句空话。
+    """
     try:
-        el = sh.fill._xPr.find(qn('a:solidFill'))
+        # **不要走 sh.fill**：Connector 没有 .fill（会抛 AttributeError，
+        # 被下面的 except 吃掉，于是线一声不响地消失）。直接读 XML。
+        xpr = sh._element.find(qn('p:spPr'))
+        if xpr is None: return None, 0
+        el = xpr.find(qn('a:solidFill'))
+        if el is None:                       # 退到描边
+            ln = xpr.find(qn('a:ln'))
+            el = ln.find(qn('a:solidFill')) if ln is not None else None
         if el is None: return None, 0
         c = el.find(qn('a:srgbClr'))
         if c is None: return None, 0
@@ -285,6 +310,7 @@ def draw_shapes(dr, shapes, PPT, PPI, img, ox=0.0, oy=0.0, sc=1.0, depth=0):
                 y = (sh.top or 0)/914400*PPI*sc + oy
                 w = (sh.width or 0)/914400*PPI*sc
                 h = (sh.height or 0)/914400*PPI*sc
+                _LAYER.append(('块', x, y, x + w, y + h))
                 if al < 0.999:
                     ov = Image.new('RGBA', img.size, (0, 0, 0, 0))
                     ImageDraw.Draw(ov).rectangle([x, y, x+w, y+h], fill=c+(int(al*255),))
@@ -294,6 +320,34 @@ def draw_shapes(dr, shapes, PPT, PPI, img, ox=0.0, oy=0.0, sc=1.0, depth=0):
                     dr.rectangle([x, y, x+w, y+h], fill=c)
         if sh.has_text_frame and sh.text_frame.text.strip():
             render_text(dr, sh, PPT, PPI, ox, oy)
+
+def check_overlap(PPI):
+    """同一页里**后画的东西压住先画的字** = 压叠。
+
+    越界检测是逐形状的：框没出页面、字没撑破框，两块各自合格，
+    压在一起却没人管。**它看不见形状之间的事。**
+    P18 的副题压在大字第二行上、P13 的提示条按在正文上，两次都是这条漏的。
+
+    两个坑：
+    1. **比落字范围，不比框。** 框的留白比字大得多，拿框比会误报
+       （封面的日期和右下英文同高，其实左右分列）。
+    2. **色块单独算一条。** P13 那块提示条的底色压住了正文，而它自己那行字
+       恰好落在两行正文的空隙里——只比「字 vs 字」是看不见的。
+       绘制顺序就是 z 序，所以只看「排在后面的」。
+    """
+    T = 0.04 * PPI
+    for i, a in enumerate(_LAYER):
+        if a[0] != '墨': continue
+        for b in _LAYER[i + 1:]:
+            dx = min(a[3], b[3]) - max(a[1], b[1])
+            dy = min(a[4], b[4]) - max(a[2], b[2])
+            if dx <= T or dy <= T: continue
+            if b[0] == '墨':
+                warn('文字压叠', '「%s」↔「%s」 交叠 %.2f×%.2fin'
+                     % (a[5], b[5], dx / PPI, dy / PPI))
+            else:
+                warn('色块压字', '「%s」被后画的色块盖住 %.2f×%.2fin'
+                     % (a[5], dx / PPI, dy / PPI))
 
 def render(path, outdir, width=1600, pages=None):
     os.makedirs(outdir, exist_ok=True)
@@ -326,7 +380,9 @@ def render(path, outdir, width=1600, pages=None):
                     h = c.get('val')
                     dr.rectangle([0, 0, width, Hp],
                                  fill=tuple(int(h[j:j+2], 16) for j in (0, 2, 4)))
+        _LAYER.clear()                       # 逐页清：压叠只在同一页内算
         draw_shapes(dr, s.shapes, PPT, PPI, img)
+        check_overlap(PPI)
         out = os.path.join(outdir, 'r%02d.png' % i)
         img.save(out)
         made.append(out)

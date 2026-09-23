@@ -41,6 +41,16 @@ W, H = 13.333, 7.5        # 16:9，英寸
 M    = 0.85               # 页边距
 CW   = W - 2 * M          # 正文栏宽 11.633
 
+# ── 字号：分三档，别混 ──────────────────────────────────
+#   展示带（≥20pt）大标题 / 数字 / 大字主张 / 封面主标题。
+#      这是版面的一部分，动它等于换设计，不跟着下面两档一起抬。
+#   正文带（12–16pt）正文 / 导语 / 页脚 / 表格 / 目录明细 / 键值行。
+#      **12pt 是下限**——投影仪上的可读线，再小现场就没人看得见。
+#   角标带（9.5–11pt）**只给字距拉开的全大写小标签**：页眉右侧的英文章名、
+#      封面右下那行英文、页码、姓名卡上的身份。这些是装饰性的定位标记，
+#      不是给人读的正文，所以可以小；**别把正文往这一档里放**。
+# 加新原语时照这三档挑，别顺手写个 9pt 给正文用。
+
 # ── 配色 ────────────────────────────────────────────────
 GOLD  = CFG['accent']
 onN_1, onN_2, onN_3 = 'F2F0EC', 'B8B4AC', '7C7A74'   # 深底上的三级文字
@@ -244,10 +254,10 @@ def blank(prs, bgfile=None, scrim=0.0, solid='0A0D13'):
 def eyebrow(s, left, right='', y=0.52):
     if left:
         t = tb(s, M, y, 8, 0.30); p = P(t, first=True)
-        R(p, left, 10, True, GOLD, spc=1.6)
+        R(p, left, 11, True, GOLD, spc=1.6)
     if right:
         t = tb(s, M + CW - 5, y, 5, 0.30); p = P(t, first=True, align=PP_ALIGN.RIGHT)
-        R(p, right, 8.5, False, onN_3, spc=1.8)
+        R(p, right, 9.5, False, onN_3, spc=1.8)
 
 def title(s, text, y=0.94, size=30):
     h = th(text, size, CW, lh=1.30) + 0.10
@@ -257,19 +267,23 @@ def title(s, text, y=0.94, size=30):
 
 def lead(s, text, y, w=None):
     w = w or CW
-    h = th(text, 14, w) + 0.06
+    h = th(text, 15, w) + 0.06
     t = tb(s, M, y, w, h); p = P(t, first=True)
-    R(p, text, 14, False, onN_2)
+    R(p, text, 15, False, onN_2)
     return y + h
 
-FOOT_ZONE = H - 0.34          # 页脚允许的下边界
+FOOT_ZONE = H - 0.34          # 页脚**文字**允许的下边界（和页码同一行，左右分列，不打架）
+BAR_ZONE  = H - 0.72          # 整幅宽的**色块**允许的下边界
+# 为什么要两个：页码占 y ∈ [H-0.62, H-0.34]。满宽的色块（note_bar、cards_row
+# 的卡片）如果只躲到 FOOT_ZONE，右下角会正好压住页码 —— 页脚文字没事是因为
+# 它左对齐、页码右对齐，色块没有这个退路。这个坑出过一次，别再合并回去。
 def foot(s, text, y=None, w=None):
     """页脚小字：按字数自适应高度，贴底对齐，绝不越界"""
     w = w or CW
-    h = th(text, 9.5, w) + 0.06
+    h = th(text, 10.5, w) + 0.06
     yy = (FOOT_ZONE - h) if y is None else min(y, FOOT_ZONE - h)
     t = tb(s, M, yy, w, h); p = P(t, first=True)
-    R(p, text, 9.5, False, onN_3)
+    R(p, text, 10.5, False, onN_3)
     return yy
 
 def rule(s, x, y, w, color=GOLD, pt=1.2):
@@ -284,14 +298,14 @@ def card(s, x, y, w, h, fill=None, alpha_v=None, line=None, radius=0.055, pad=0.
     return sh
 
 # ══ 内容块 ═════════════════════════════════════════════
-def bloc(s, x, y, w, items, gap=0.30, num_color=GOLD, head_size=13.5, body_size=11.5):
+def bloc(s, x, y, w, items, gap=0.30, num_color=GOLD, head_size=14.5, body_size=12.5):
     """编号条目：一条一行，左编号右说明"""
     cy = y
     iw = w - 0.52
     for i, (head, body) in enumerate(items, 1):
         hh = th(head, head_size, iw, bold=True) + 0.05
         t = tb(s, x, cy, 0.40, hh); p = P(t, first=True)
-        R(p, '%02d' % i, 10.5, True, num_color, spc=1.0)
+        R(p, '%02d' % i, 11.5, True, num_color, spc=1.0)
         t = tb(s, x + 0.52, cy - 0.015, iw, hh); p = P(t, first=True)
         R(p, head, head_size, True, onN_1)
         cy += hh + 0.02
@@ -303,7 +317,7 @@ def bloc(s, x, y, w, items, gap=0.30, num_color=GOLD, head_size=13.5, body_size=
         cy += gap
     return cy
 
-def cards_row(s, y, h, items, gap=0.26, highlight=None, x=None, w=None, head_pt=14):
+def cards_row(s, y, h, items, gap=0.26, highlight=None, x=None, w=None, head_pt=15):
     """横排卡片。items=[(标题, 正文)]，highlight=高亮的下标集合。
     给定 h 不够时会自动长高；整体贴到页脚区之上。"""
     x = M if x is None else x
@@ -313,9 +327,9 @@ def cards_row(s, y, h, items, gap=0.26, highlight=None, x=None, w=None, head_pt=
     hi = highlight or set()
     iw = cw - 0.52
     # 卡片至少要能装下「标题 + 最长正文」
-    need = max(th(bd, 11, iw, lh=1.5) + 0.74 + 0.30 for _, bd in items)
+    need = max(th(bd, 12, iw, lh=1.5) + 0.74 + 0.30 for _, bd in items)
     h = max(h, need + 0.06)
-    y = min(y, FOOT_ZONE - 0.10 - h)
+    y = min(y, BAR_ZONE - 0.10 - h)
     for i, (head, body) in enumerate(items):
         cx = x + i * (cw + gap)
         on = i in hi
@@ -329,10 +343,10 @@ def cards_row(s, y, h, items, gap=0.26, highlight=None, x=None, w=None, head_pt=
         R(p, head, head_pt, True, GOLD if on else onN_1)
         t = tb(s, cx + 0.26, y + 0.72, iw, max(0.30, h - 0.98))
         p = P(t, first=True, line=1.5)
-        R(p, body, 11, False, onN_1 if on else onN_2)
+        R(p, body, 12, False, onN_1 if on else onN_2)
     return y + h
 
-def kv_rows(s, x, y, w, rows, k_w=2.5, gap=0.42, k_size=12, v_size=11.5):
+def kv_rows(s, x, y, w, rows, k_w=2.5, gap=0.42, k_size=13, v_size=12.5):
     """键值行：左粗右细，行间细线"""
     cy = y
     for k, v in rows:
@@ -351,10 +365,10 @@ def stat(s, x, y, w, big, unit, label, big_size=54, color=None):
     t = tb(s, x, y, w, bh + 0.06); p = P(t, first=True)
     R(p, big, big_size, False, color or onN_1, cn=CN_SERIF, en=EN_SERIF)
     if unit:
-        R(p, ' ' + unit, 13, False, onN_2)
-    lh_ = th(label, 11.5, w) + 0.06
+        R(p, ' ' + unit, 14, False, onN_2)
+    lh_ = th(label, 12.5, w) + 0.06
     t = tb(s, x, y + bh + 0.12, w, lh_); p = P(t, first=True)
-    R(p, label, 11.5, False, onN_2)
+    R(p, label, 12.5, False, onN_2)
     return y + bh + 0.12 + lh_
 
 def quote(s, text, y, size=40, sub=None, w=None):
@@ -365,29 +379,51 @@ def quote(s, text, y, size=40, sub=None, w=None):
     R(p, text, size, False, onN_1, cn=CN_SERIF, en=EN_SERIF)
     cy = y + h + 0.10
     if sub:
-        sh_ = th(sub, 13, w) + 0.06
+        sh_ = th(sub, 14, w) + 0.06
         t = tb(s, M, cy, w, sh_); p = P(t, first=True)
-        R(p, sub, 13, False, onN_2)
+        R(p, sub, 14, False, onN_2)
         cy += sh_ + 0.12
     return cy
 
+def shot(s, x, y, w, path, panel=True, pad=0.10):
+    """截图条：把一张真截图按栏宽等比放上去，底下垫一层承载面板。
+
+    高度**由图片自身的比例算，不写死**——截图是宽是扁由内容决定，
+    写死高度就会拉伸变形。所以裁图的时候要按目标栏宽算好比例：
+    比如打算放在 11.6 英寸宽的栏里、想要 1.7 英寸高，就裁成 6.8:1。
+    """
+    iw, ih = Image.open(path).size
+    h = w * ih / iw
+    if panel:
+        card(s, x - pad, y - pad, w + 2 * pad, h + 2 * pad,
+             fill='0E131B', alpha_v=0.55)
+    s.shapes.add_picture(path, Inches(x), Inches(y), width=Inches(w))
+    return y + h + (2 * pad if panel else 0)
+
+
 def note_bar(s, text, y, w=None, color=GOLD):
-    """提示条：这一页最该被记住的那一句。高度随字数长，整体不越界。"""
+    """提示条：这一页最该被记住的那一句。高度随字数长，整体不越界。
+
+    y **接上一个原语的返回值**（`y = kv_rows(...)`，然后传 y + 0.30），
+    别写死偏移 —— 写死的那个 y 是上一个原语**之前**的位置，提示条会正好
+    按在正文中间，而且一声不响：越界检测只管页面边界，不管压没压住字。
+    下面那个 min() 也帮不上忙，它只在「排到底了」的时候往上收。
+    """
     w = w or CW
-    th_ = th(text, 12.5, w - 0.60, bold=True) + 0.30
-    y = min(y, FOOT_ZONE - 0.10 - th_)
+    th_ = th(text, 13.5, w - 0.60, bold=True) + 0.30
+    y = min(y, BAR_ZONE - 0.10 - th_)
     sh = rect(s, M, y, w, th_, fill='1C1710', line=None,
               radius=0.10, shape=MSO_SHAPE.ROUNDED_RECTANGLE)
     rect(s, M, y, 0.045, th_, fill=color)
     t = tb(s, M + 0.30, y + 0.14, w - 0.60, th_ - 0.24); p = P(t, first=True, line=1.35)
-    R(p, text, 12.5, True, 'E4C97A')
+    R(p, text, 13.5, True, 'E4C97A')
     return y + th_
 
 # ══ 表格 ═══════════════════════════════════════════════
 NO_STYLE = '{2D5ABB26-0587-4C30-8999-92F81FD0307C}'
 
 def table(s, x, y, w, head, rows, col_w=None, head_h=0.44, row_h=0.46,
-          hi=None, size=11, head_size=10.5):
+          hi=None, size=12, head_size=11.5):
     """深底上的极简表：只有横线，无竖线无底色"""
     nr, nc = len(rows) + 1, len(head)
     shp = s.shapes.add_table(nr, nc, Inches(x), Inches(y), Inches(w), Inches(head_h + len(rows) * row_h))
@@ -488,8 +524,8 @@ def portrait(s, x, y, w, h, name, role, note='', accent=None, slot=None):
         # 整页反而找不到这个人叫什么了。字号随卡片宽度走。
         t = tb(s, x + 0.20, y + h - 0.60, w - 0.40, 0.46)
         p = P(t, first=True)
-        R(p, name, 12.5 if w >= 3.2 else 11, True, onN_1)
-        R(p, '　' + role, 9, False, onN_2)
+        R(p, name, 13.5 if w >= 3.2 else 12, True, onN_1)
+        R(p, '　' + role, 10, False, onN_2)
     return pic
 
 # ══ 页面原型 ═══════════════════════════════════════════
@@ -498,19 +534,23 @@ def cover(prs, title_txt, sub, en, date, bg=None):
     不要在这儿写死客户名，那是每份方案都要换的东西。"""
     s = blank(prs, bg or CFG['cover_bg'])
     t = tb(s, M, 0.78, 8, 0.30); p = P(t, first=True)
-    R(p, CFG['brand'], 10, False, GOLD, spc=2.4)
+    R(p, CFG['brand'], 11, False, GOLD, spc=2.4)
     if CFG.get('sub_brand'):
-        R(p, '　·　', 10, False, onN_3)
-        R(p, CFG['sub_brand'], 10, False, onN_2, spc=2.4)
-    t = tb(s, M, 2.62, CW, 1.5); p = P(t, first=True)
+        R(p, '　·　', 11, False, onN_3)
+        R(p, CFG['sub_brand'], 11, False, onN_2, spc=2.4)
+    # 盒子高度和下面那道金线都跟着标题**量出来的**高度走。原来是写死 1.5 英寸
+    # + 金线钉在 4.22——标题一折成两行就压在金线上。单行标题算出来还是 1.5，
+    # 所以观感没变。
+    h = th(title_txt, 76, CW, lh=1.26)
+    t = tb(s, M, 2.62, CW, h); p = P(t, first=True, line=1.14)
     R(p, title_txt, 76, False, onN_1, cn=CN_SERIF, en=EN_SERIF)
-    rule(s, M, 4.22, 1.55)
-    t = tb(s, M, 4.52, 10, 0.40); p = P(t, first=True)
-    R(p, sub, 15, False, onN_2)
+    rule(s, M, 2.62 + h + 0.10, 1.55)
+    t = tb(s, M, 2.62 + h + 0.40, 10, 0.40); p = P(t, first=True)
+    R(p, sub, 16, False, onN_2)
     t = tb(s, M, 6.42, 7, 0.32); p = P(t, first=True)
-    R(p, date, 10, False, onN_3, spc=1.4)
+    R(p, date, 11, False, onN_3, spc=1.4)
     t = tb(s, M + CW - 5, 6.42, 5, 0.32); p = P(t, first=True, align=PP_ALIGN.RIGHT)
-    R(p, en, 8.5, False, onN_3, spc=2.0)
+    R(p, en, 9.5, False, onN_3, spc=2.0)
     return s
 
 def toc(prs, items):
@@ -518,17 +558,17 @@ def toc(prs, items):
     s = blank(prs, CFG['quiet_bg'])
     t = tb(s, M, 0.78, 8, 0.52); p = P(t, first=True)
     R(p, '目录', 22, False, onN_1, cn=CN_SERIF, en=EN_SERIF)
-    R(p, '　CONTENTS', 9, False, onN_3, spc=2.2)
+    R(p, '　CONTENTS', 10, False, onN_3, spc=2.2)
     y = 1.72
     for num, zh, en, what, key in items:
         c = SEC_COLOR[num] if key else onN_3
         t = tb(s, M, y, 0.7, 0.32); p = P(t, first=True)
-        R(p, num, 13, True, c, spc=1.0)
+        R(p, num, 14, True, c, spc=1.0)
         t = tb(s, M + 0.80, y - 0.05, 4.6, 0.36); p = P(t, first=True)
-        R(p, zh, 17, False, onN_1 if key else onN_2, cn=CN_SERIF, en=EN_SERIF)
-        R(p, '　' + en, 9, False, onN_3, spc=1.0)
+        R(p, zh, 18, False, onN_1 if key else onN_2, cn=CN_SERIF, en=EN_SERIF)
+        R(p, '　' + en, 10, False, onN_3, spc=1.0)
         t = tb(s, M + 5.7, y + 0.04, CW - 5.7, 0.34); p = P(t, first=True)
-        R(p, what, 11, False, onN_2 if key else onN_3)
+        R(p, what, 12, False, onN_2 if key else onN_3)
         line_h(s, M, y + 0.46, CW, onN_ln, 0.5)
         y += 0.78
     return s
@@ -538,11 +578,11 @@ def divider(prs, num):
     s = blank(prs, '章节%s-%s.jpg' % (num, SEC_COLOR[num]))
     rect(s, M, 2.62, 0.05, 1.62, fill=SEC_COLOR[num])
     t = tb(s, M + 0.34, 2.60, 9, 0.30); p = P(t, first=True)
-    R(p, num, 11, True, SEC_COLOR[num], spc=1.6)
+    R(p, num, 12, True, SEC_COLOR[num], spc=1.6)
     t = tb(s, M + 0.34, 2.90, 10.5, 0.98); p = P(t, first=True)
     R(p, zh, 46, False, onN_1, cn=CN_SERIF, en=EN_SERIF)
     t = tb(s, M + 0.34, 3.98, 9, 0.30); p = P(t, first=True)
-    R(p, en.upper(), 10, False, onN_3, spc=2.6)
+    R(p, en.upper(), 11, False, onN_3, spc=2.6)
     return s
 
 def page(prs, sec, title_txt, lead_txt='', bg=None, scrim=0.42,
@@ -558,17 +598,29 @@ def page(prs, sec, title_txt, lead_txt='', bg=None, scrim=0.42,
         foot(s, foot_txt)
     return s, y + 0.16
 
-def end(prs, line, sub='谢谢你的时间。'):
+def end(prs, line, sub='谢谢你的时间。', contact=None):
     """收尾页。line 是这页唯一那句大字，得为这份方案单独想——
-    抄上一份的收尾句是最容易露怯的地方。"""
+    抄上一份的收尾句是最容易露怯的地方。
+
+    contact 有就照原样打上，没有才退回占位符。**别把占位符写死**——
+    联系方式是每份方案都不同、而且一定要填的东西，写死了就等着
+    「〔提案方〕〔联系人〕」原样交到客户手上。用户给过就一定要用上。
+    """
     s = blank(prs, CFG['quiet_bg'])
+    GAP, SUB_H, CONTACT_Y = 0.14, 0.38, 6.50
     h = th(line, 60, CW, lh=1.26) + 0.10        # 按字数算，别写死
-    t = tb(s, M, 3.62, CW, h); p = P(t, first=True, line=1.14)
+    # 副题**不能写死坐标**。h 是量出来的，line 一旦带 \n 变成两行，框就撑到
+    # 6.09，而写死的 5.02 正好落在第二行上——出过一次，自检不报（越界检测
+    # 只管页面边界，不管压没压住字），是翻图才看出来的。
+    # 所以副题跟在框后；整块太靠下时往上收，落款位置不动。
+    top = min(3.62, CONTACT_Y - GAP - SUB_H - GAP - h)
+    t = tb(s, M, top, CW, h); p = P(t, first=True, line=1.14)
     R(p, line, 60, False, onN_1, cn=CN_SERIF, en=EN_SERIF)
-    t = tb(s, M, 5.02, CW, 0.38); p = P(t, first=True)
-    R(p, sub, 15, False, onN_2)
-    t = tb(s, M, 6.50, CW, 0.32); p = P(t, first=True)
-    R(p, '〔提案方〕　　〔联系人〕　　〔邮箱 / 电话〕', 10, False, onN_3, spc=0.8)
+    t = tb(s, M, top + h + GAP, CW, SUB_H); p = P(t, first=True)
+    R(p, sub, 16, False, onN_2)
+    t = tb(s, M, CONTACT_Y, CW, 0.32); p = P(t, first=True)
+    R(p, contact or '〔提案方〕　　〔联系人〕　　〔邮箱 / 电话〕',
+      11, False, onN_3, spc=0.8)
     return s
 
 
@@ -580,4 +632,4 @@ def page_number(prs, skip=2):
             continue
         t = tb(s, W - M - 1.0, H - 0.62, 1.0, 0.28)
         p = P(t, first=True, align=PP_ALIGN.RIGHT)
-        R(p, '%02d' % i, 8.5, False, onN_3, spc=1.2)
+        R(p, '%02d' % i, 9.5, False, onN_3, spc=1.2)
